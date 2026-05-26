@@ -1,0 +1,14 @@
+{
+  "name": "lizard-skills",
+  "description": "Use Lizard from Claude Code — the unified cloud for apps, services, agents, and databases.",
+  "owner": {
+    "name": "yuraoak"
+  },
+  "plugins": [
+    {
+      "name": "lizard-core",
+      "source": "./plugins/lizard-core",
+      "description": "Deploy and manage your Lizard resources from Claude Code. Auto-installs the lizard CLI on first session."
+    }
+  ]
+}

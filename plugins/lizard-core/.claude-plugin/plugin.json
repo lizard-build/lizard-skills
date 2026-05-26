@@ -1,0 +1,12 @@
+{
+  "name": "lizard-core",
+  "displayName": "Lizard",
+  "description": "Deploy and manage your Lizard resources from Claude Code. Auto-installs the lizard CLI on first session.",
+  "version": "0.1.0",
+  "keywords": ["lizard", "deploy", "paas", "infrastructure", "cli"],
+  "author": {
+    "name": "yuraoak"
+  },
+  "homepage": "https://lizard.build",
+  "repository": "https://github.com/lizard-build/lizard-skills"
+}
