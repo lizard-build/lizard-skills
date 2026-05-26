@@ -1,0 +1,28 @@
+{
+  "name": "lizard-core",
+  "version": "0.1.0",
+  "description": "Deploy and manage your Lizard resources from Codex. Auto-installs the lizard CLI on first session.",
+  "author": {
+    "name": "yuraoak"
+  },
+  "homepage": "https://lizard.build",
+  "repository": "https://github.com/lizard-build/lizard-skills",
+  "license": "MIT",
+  "keywords": ["lizard", "deploy", "paas", "infrastructure", "cli"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Lizard",
+    "shortDescription": "Deploy apps, services, and managed databases via Lizard.",
+    "longDescription": "Deploy and manage anything Lizard supports — projects, services, managed databases (postgres / redis / s3), domains, secrets — from inside Codex. Includes a SessionStart hook that auto-installs the lizard CLI (one-time, via curl or npm).",
+    "developerName": "Lizard",
+    "category": "Productivity",
+    "websiteURL": "https://lizard.build",
+    "defaultPrompt": [
+      "Deploy this repo to Lizard.",
+      "Add a managed Postgres database to my project.",
+      "Show logs for my Lizard service."
+    ]
+  }
+}

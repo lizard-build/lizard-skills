@@ -1,0 +1,22 @@
+{
+  "name": "lizard-skills",
+  "interface": {
+    "displayName": "Lizard"
+  },
+  "plugins": [
+    {
+      "name": "lizard-core",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/lizard-build/lizard-skills.git",
+        "path": "./plugins/lizard-core",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
