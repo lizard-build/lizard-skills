@@ -1,6 +1,6 @@
 {
   "name": "lizard-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Deploy and manage your Lizard resources from Codex. Auto-installs the lizard CLI on first session.",
   "author": {
     "name": "yuraoak"
