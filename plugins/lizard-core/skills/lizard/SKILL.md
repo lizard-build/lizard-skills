@@ -38,7 +38,7 @@ workspace → project → service (+ managed addons)
 
 - Workspace — account/org level. User belongs to one or more.
 - Project — group of related services in one workspace. The cwd gets linked to a project (config at `~/.lizard/config.json`).
-- Service — a deployable unit. Source is either a git repo (`source.type=github`) or an uploaded tarball (`source.type=upload`).
+- Service — a deployable unit. Source is either a git repo (`sourceType=github`) or an uploaded tarball (`sourceType=upload`).
 - Managed addons — `postgres`, `redis`, `s3`. Provisioned with `lizard add <type>`.
 - Cross-resource refs — `${{<name>.<KEY>}}` resolves at deploy time against the target's merged env. Unresolved refs throw, they don't go silent. Stored form is rename-safe.
 
@@ -69,7 +69,7 @@ When the user wants to deploy or set up something new, work out the right action
 
 1. `lizard status --json` in cwd.
 2. Linked to a project? → add a service in that project: `lizard add -r owner/repo` (git source) or `lizard add -s <name>` (empty). Do not create a new project unless the user explicitly says so.
-3. Not linked but parent dir is linked? → likely a monorepo sub-app. Add a service in the parent's project and set `source.rootDirectory` to the cwd subpath via `service set`.
+3. Not linked but parent dir is linked? → likely a monorepo sub-app. Add a service in the parent's project and set `rootDirectory` to the cwd subpath via `service set`.
 4. Neither linked? → check `lizard projects --json` for one matching the directory or repo name. Match → `lizard link --project <name>`. No match → `lizard init --name <name>`.
 
 Naming heuristic: app-style names (`my-api`, `worker`, `flappy-bird`) are service names. Use the repo or directory name for the project.
@@ -81,7 +81,7 @@ Builds run on the platform's build nodes (no local Docker needed). When a build 
 ### Build decision order
 
 1. Synthesized Dockerfile — if `buildCommand` and/or `startCommand` are set on the service (or passed via `lizard up`), the platform generates a Dockerfile from those commands. No lizardpack invocation.
-2. Repo Dockerfile (verbatim) — if `build.dockerfilePath` is set on the service, the platform uses that Dockerfile from the repo unchanged.
+2. Repo Dockerfile (verbatim) — if `dockerfilePath` is set on the service, the platform uses that Dockerfile from the repo unchanged.
 3. lizardpack auto-detect — clone, run `lizardpack`. If a repo `Dockerfile` exists AND has a real build step (a `RUN <pkg-manager>` line, not just `COPY dist/`), it's used verbatim; otherwise lizardpack generates a multi-stage one. Supported: Go, Node, Python, Rust, Ruby, PHP, Java, static — first match in that order.
 
 ### What triggers a rebuild
@@ -104,24 +104,27 @@ lizard add -r owner/repo --json
 
 # Existing service: switch source to git or update branch:
 lizard service set <svc> \
-  --set source.type=github \
-  --set source.repoUrl=https://github.com/owner/repo \
-  --set source.branch=main \
+  --set sourceType=github \
+  --set repoUrl=https://github.com/owner/repo \
+  --set branch=main \
   --json
 lizard redeploy --service <svc>
 ```
 
-When `source.repoUrl` is set, pushes to the matching branch auto-redeploy via the GitHub webhook. If the service has a `rootDirectory` (monorepo subpath) or watch patterns, only matching changes trigger redeploys.
+When `repoUrl` is set, pushes to the matching branch auto-redeploy via the GitHub webhook. If the service has a `rootDirectory` (monorepo subpath) or watch patterns, only matching changes trigger redeploys.
 
-Useful `service set` paths (discover full list with `lizard service set --help --json`):
+Useful `service set` fields (discover full list with `lizard service set --help --json`):
 
-- `source.type` = `github | upload`
-- `source.repoUrl`, `source.branch`, `source.rootDirectory`
-- `build.dockerfilePath` — use a specific repo Dockerfile, bypasses lizardpack auto-detect
-- `build.buildCommand`
-- `deploy.startCommand`, `deploy.preDeployCommand`
-- `deploy.healthcheckPath`, `deploy.healthcheckTimeout`
-- `name` — rename a service (goes through `config:apply`; the legacy `PATCH /api/apps/:id` returns 410)
+- `sourceType` = `github | upload`
+- `repoUrl`, `branch`, `rootDirectory`
+- `dockerfilePath` — use a specific repo Dockerfile, bypasses lizardpack auto-detect
+- `buildCommand`
+- `startCommand`, `preDeployCommand`
+- `healthcheckPath`, `healthcheckTimeoutMs`
+- `watchPatterns` — string array, comma-separated or JSON
+- `name` — rename a service (lowercase a-z, digits, hyphens; 1–40 chars). Goes through `config:apply`; the legacy `PATCH /api/apps/:id` returns 410. Cannot be combined with secret updates in the same call — split into two calls.
+
+Field names are flat and match the wire schema 1:1 (and `service show` output). No `build.*` / `deploy.*` / `source.*` grouping exists in the API, DB, or node-agent.
 
 `service set` uses optimistic concurrency via `configRevision`. On 409, re-read with `lizard service show`, reconcile, retry; `--force` overrides.
 
@@ -131,11 +134,11 @@ Useful `service set` paths (discover full list with `lizard service set --help -
 lizard up --json
 ```
 
-- Uploads cwd as a tarball (respects `.gitignore`), forces `source.type=upload`.
+- Uploads cwd as a tarball (respects `.gitignore`), forces `sourceType=upload`.
 - Streams build logs over SSE; emits final `{ event: "deployed", url: "..." }`.
 - Flags: `--service`, `--region`, `--build-command`, `--start-command`, `--pre-deploy-command`, `--port`, `--detach`, `--ci`.
 - If cwd isn't linked, auto-runs `init` (interactive). For headless flows, run `lizard init --name <project>` first.
-- `lizard up` always switches the service to `source.type=upload`. Do not use it to update a git-backed service — use `lizard redeploy` or push to the remote.
+- `lizard up` always switches the service to `sourceType=upload`. Do not use it to update a git-backed service — use `lizard redeploy` or push to the remote.
 
 ## Secrets
 
@@ -166,8 +169,8 @@ App secrets override project secrets. Platform vars (`LIZARD_SERVICE_NAME`, `LIZ
 
 ```
 lizard service set <svc> \
-  --set deploy.healthcheckPath=/health \
-  --set deploy.healthcheckTimeout=5000     # ms
+  --set healthcheckPath=/health \
+  --set healthcheckTimeoutMs=5000
 ```
 
 The node-agent calls that HTTP path during rollouts to gate readiness. Don't add `HEALTHCHECK` to the user's `Dockerfile` — the platform ignores it (Firecracker VMs don't run Docker's healthcheck loop).
@@ -179,8 +182,8 @@ Multi-step requests follow natural chains. Return one unified response, don't fa
 - First deploy from git — pick action via [Setup decision flow](#setup-decision-flow) → `lizard add -r owner/repo` → stream build → surface URL.
 - First deploy from local code — Setup decision flow → `lizard up` → surface URL.
 - Add a managed database to an existing service — `lizard add postgres` → tell the user to reference `${{postgres.DATABASE_URL}}` in their service env → `redeploy` only if they need to consume it right away.
-- Wire a fresh git source on an existing service — `service set --set source.type=github --set source.repoUrl=… --set source.branch=…` → `redeploy`.
-- Fix a failed build — `logs --build` → diagnose → fix project (user's repo) OR adjust `build.buildCommand` / `deploy.startCommand` via `service set` → `redeploy` → `logs` to verify.
+- Wire a fresh git source on an existing service — `service set --set sourceType=github --set repoUrl=… --set branch=…` → `redeploy`.
+- Fix a failed build — `logs --build` → diagnose → fix project (user's repo) OR adjust `buildCommand` / `startCommand` via `service set` → `redeploy` → `logs` to verify.
 - Add a custom domain — `domain add <host> --service <svc>` → surface DNS records to the user → `domain list` to verify later.
 
 ## Common ops
@@ -218,9 +221,8 @@ Skip command-by-command transcripts unless they explain a failure.
 
 ## Don't do
 
-1. Don't add Docker `HEALTHCHECK` — the platform ignores it. Use `deploy.healthcheckPath` via `service set`.
-2. Don't recommend `Procfile` or assume `package.json scripts.start` is auto-detected. The platform doesn't read either. Set `startCommand` explicitly via `lizard up --start-command` / `service set --set deploy.startCommand=...`, or include `CMD` in the user's Dockerfile.
-3. Don't use `lizard up` to switch a service to a git source. It always forces `source.type=upload`. Use `service set` + `redeploy` instead.
-4. A Dockerfile that copies pre-built artifacts (`COPY dist/`, `build/`, `out/`, `.next/`, `public/`) without a `RUN` build step gets silently regenerated by lizardpack. Add a build step or set `build.dockerfilePath` to force verbatim use.
+1. Don't add Docker `HEALTHCHECK` — the platform ignores it. Use `healthcheckPath` via `service set`.
+2. Don't recommend `Procfile` or assume `package.json scripts.start` is auto-detected. The platform doesn't read either. Set `startCommand` explicitly via `lizard up --start-command` / `service set --set startCommand=...`, or include `CMD` in the user's Dockerfile.
+3. Don't use `lizard up` to switch a service to a git source. It always forces `sourceType=upload`. Use `service set` + `redeploy` instead.
+4. A Dockerfile that copies pre-built artifacts (`COPY dist/`, `build/`, `out/`, `.next/`, `public/`) without a `RUN` build step gets silently regenerated by lizardpack. Add a build step or set `dockerfilePath` to force verbatim use.
 5. Don't generate Dockerfiles unsolicited — lizardpack auto-detects most stacks. Try a deploy first; write one only if it fails. Ask before either.
-
