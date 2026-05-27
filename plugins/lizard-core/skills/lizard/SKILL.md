@@ -118,7 +118,8 @@ Useful `service set` paths (discover full list with `lizard service set --help -
 - `source.type` = `github | upload`
 - `source.repoUrl`, `source.branch`, `source.rootDirectory`
 - `build.dockerfilePath` — use a specific repo Dockerfile, bypasses lizardpack auto-detect
-- `deploy.buildCommand`, `deploy.startCommand`, `deploy.preDeployCommand`
+- `build.buildCommand`
+- `deploy.startCommand`, `deploy.preDeployCommand`
 - `deploy.healthcheckPath`, `deploy.healthcheckTimeout`
 - `name` — rename a service (goes through `config:apply`; the legacy `PATCH /api/apps/:id` returns 410)
 
@@ -179,7 +180,7 @@ Multi-step requests follow natural chains. Return one unified response, don't fa
 - First deploy from local code — Setup decision flow → `lizard up` → surface URL.
 - Add a managed database to an existing service — `lizard add postgres` → tell the user to reference `${{postgres.DATABASE_URL}}` in their service env → `redeploy` only if they need to consume it right away.
 - Wire a fresh git source on an existing service — `service set --set source.type=github --set source.repoUrl=… --set source.branch=…` → `redeploy`.
-- Fix a failed build — `logs --build` → diagnose → fix project (user's repo) OR adjust `deploy.buildCommand` / `deploy.startCommand` via `service set` → `redeploy` → `logs` to verify.
+- Fix a failed build — `logs --build` → diagnose → fix project (user's repo) OR adjust `build.buildCommand` / `deploy.startCommand` via `service set` → `redeploy` → `logs` to verify.
 - Add a custom domain — `domain add <host> --service <svc>` → surface DNS records to the user → `domain list` to verify later.
 
 ## Common ops
