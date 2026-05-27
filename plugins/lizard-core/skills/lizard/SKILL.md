@@ -122,7 +122,7 @@ Useful `service set` fields (discover full list with `lizard service set --help 
 - `startCommand`, `preDeployCommand`
 - `healthcheckPath`, `healthcheckTimeoutMs`
 - `watchPatterns` — string array, comma-separated or JSON
-- `name` — rename a service (lowercase a-z, digits, hyphens; 1–40 chars). Goes through `config:apply`; the legacy `PATCH /api/apps/:id` returns 410. Cannot be combined with secret updates in the same call — split into two calls.
+- `name` — rename a service (lowercase a-z, digits, hyphens; 1–40 chars). Goes through `config:apply`; the legacy `PATCH /api/apps/:id` returns 410.
 
 Field names are flat and match the wire schema 1:1 (and `service show` output). No `build.*` / `deploy.*` / `source.*` grouping exists in the API, DB, or node-agent.
 
