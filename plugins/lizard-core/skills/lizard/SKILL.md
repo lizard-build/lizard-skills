@@ -26,7 +26,7 @@ Before writing commands for a specific project:
 1. Prefer the `lizard` CLI. For anything not exposed by it, ask the user — don't hit the API directly.
 2. Always pass `--json` on non-interactive calls. The CLI also auto-switches when stdout isn't a TTY. For streaming commands (`lizard up` without `--detach`, `lizard logs`), `--json` produces one JSON event per line: `{ event: "log", line }`, terminating with `{ event: "done" }` / `{ event: "error", message }`, plus `{ event: "deployed", status, url }` for `up`.
 3. For unfamiliar commands, run `lizard <cmd> --help --json` first — never guess flag shapes. See [Discovery](#discovery).
-4. Resolve context before any mutation. `lizard status` shows the cwd link; `lizard list --json` shows services in the linked project. Confirm you're targeting the right thing.
+4. Resolve context before any mutation. `lizard status` shows the cwd link; `lizard ps --json` shows services in the linked project. Confirm you're targeting the right thing.
 5. For destructive actions (delete service, drop addon, overwrite a project-wide secret, prod restart), confirm intent with the user before executing. The CLI's own prompts fire only on TTY.
 
 ## Mental model
@@ -58,7 +58,7 @@ Returns `{ command: { arguments, options, subcommands }, globalOptions, exitCode
 - `0` success — continue
 - `1` generic error — inspect message, surface to user
 - `2` auth (401/403) — tell user "Run `! lizard login` to authenticate"; never invoke `lizard login` from a tool call (polls stdin up to 5 min)
-- `3` not found (404) — wrong name / resource gone; verify with `lizard projects` / `lizard list`
+- `3` not found (404) — wrong name / resource gone; verify with `lizard project list` / `lizard ps`
 - `4` timeout — retry or report
 - `5` cancelled by user — stop
 
@@ -69,7 +69,7 @@ When the user wants to deploy or set up something new, work out the right action
 1. `lizard status --json` in cwd.
 2. Linked to a project? → add a service in that project: `lizard add -r owner/repo` (git source) or `lizard add -s <name>` (empty). Do not create a new project unless the user explicitly says so.
 3. Not linked but parent dir is linked? → likely a monorepo sub-app. Add a service in the parent's project and set `rootDirectory` to the cwd subpath via `service set`.
-4. Neither linked? → check `lizard projects --json` for one matching the directory or repo name. Match → `lizard link --project <name>`. No match → `lizard init --name <name>`.
+4. Neither linked? → check `lizard project list --json` for one matching the directory or repo name. Match → `lizard link --project <name>`. No match → `lizard init --name <name>`.
 
 Naming heuristic: app-style names (`my-api`, `worker`, `flappy-bird`) are service names. Use the repo or directory name for the project.
 
@@ -202,8 +202,7 @@ lizard domain add example.com --service <name>
 lizard domain list --json
 lizard ssh --service <name>                 # interactive — needs TTY
 lizard run --service <name> -- <cmd>        # one-off command in service env
-lizard projects --json
-lizard list --json                          # services in linked project
+lizard project list --json                  # all projects in workspace
 lizard regions --json
 lizard open                                 # open dashboard
 lizard whoami --json                        # auth check
