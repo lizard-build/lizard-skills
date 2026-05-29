@@ -38,7 +38,7 @@ workspace → project → service (+ managed addons)
 - Workspace — account/org level. User belongs to one or more.
 - Project — group of related services in one workspace. The cwd gets linked to a project (config at `~/.lizard/config.json`).
 - Service — a deployable unit. Source is either a git repo (`sourceType=github`) or an uploaded tarball (`sourceType=upload`).
-- Managed addons — `postgres`, `redis`, `s3`. Provisioned with `lizard add <type>`.
+- Managed addons — `postgres`, `redis`, `s3`. Provisioned with `lizard add <type>`; `s3` ships with a public-read default bucket named `default`. See [Managed addons](#managed-addons) for the env vars each type exposes.
 - Cross-resource refs — `${{<name>.<KEY>}}` resolves at deploy time against the target's merged env. Unresolved refs throw, they don't go silent. Stored form is rename-safe.
 
 ## Discovery
@@ -177,6 +177,14 @@ lizard service set <svc> \
 
 The node-agent calls that HTTP path during rollouts to gate readiness. Don't add `HEALTHCHECK` to the user's `Dockerfile` — the platform ignores it (Firecracker VMs don't run Docker's healthcheck loop).
 
+## Managed addons
+
+Provision with `lizard add <type>`. Each addon exposes a fixed env-var set; reference by name from a consumer service via `${{<addon-name>.KEY}}`. The first addon of a given type gets the bare type as its name (so `${{postgres.DATABASE_URL}}` works out of the box); subsequent ones get adjective-noun names like `autumn-bear`.
+
+- `postgres` — `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`.
+- `redis` — `REDIS_URL`.
+- `s3` — `S3_ENDPOINT`, `S3_DEFAULT_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`. Auto-creates a public-read bucket named `default`; objects in any public bucket are served by the platform proxy at `<dashboard-host>/api/s3/<addonId>/public/<bucket>/<key>` (the host `lizard open` launches) — no auth, edge-cached, ETag/304-aware. For AWS SDK use, set `forcePathStyle: true`. ACL flips aren't on the CLI yet — point users at the dashboard.
+
 ## Composition patterns
 
 Multi-step requests follow natural chains. Return one unified response, don't farm out steps:
@@ -184,6 +192,7 @@ Multi-step requests follow natural chains. Return one unified response, don't fa
 - First deploy from git — pick action via [Setup decision flow](#setup-decision-flow) → `lizard add -r owner/repo` → stream build → surface URL.
 - First deploy from local code — Setup decision flow → `lizard up` → surface URL.
 - Add a managed database to an existing service — `lizard add postgres` → tell the user to reference `${{postgres.DATABASE_URL}}` in their service env → `redeploy` only if they need to consume it right away.
+- Add object storage to a service — `lizard add s3` → reference `${{s3.S3_ENDPOINT}}`, `${{s3.S3_DEFAULT_BUCKET}}`, `${{s3.S3_ACCESS_KEY_ID}}`, `${{s3.S3_SECRET_ACCESS_KEY}}`, `${{s3.S3_REGION}}` from the consumer service. Anything uploaded to the `default` bucket is publicly served at `<dashboard-host>/api/s3/<addonId>/public/default/<key>` with no extra setup. See [Managed addons](#managed-addons).
 - Wire a fresh git source on an existing service — `service set --set sourceType=github --set repoUrl=… --set branch=…` → `redeploy`.
 - Fix a failed build — `logs --build` → diagnose → fix project (user's repo) OR adjust `buildCommand` / `startCommand` via `service set` → `redeploy` → `logs` to verify.
 - Add a custom domain — `domain add <host> --service <svc>` → surface DNS records to the user → `domain list` to verify later.
