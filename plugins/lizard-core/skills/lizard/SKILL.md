@@ -51,7 +51,7 @@ lizard <cmd> --help --json                  # specific command schema
 lizard <cmd> <sub> --help --json            # nested (e.g. `lizard service set --help --json`)
 ```
 
-Returns `{ command: { arguments, options, subcommands }, globalOptions, exitCodes }`.
+Returns `{ cli, version, command: { arguments, options, subcommands }, globalOptions, exitCodes }`.
 
 ## Exit codes
 
@@ -69,7 +69,7 @@ When the user wants to deploy or set up something new, work out the right action
 1. `lizard status --json` in cwd.
 2. Linked to a project? → add a service in that project: `lizard add -r owner/repo` (git source) or `lizard add -s <name>` (empty). Do not create a new project unless the user explicitly says so.
 3. Not linked but parent dir is linked? → likely a monorepo sub-app. Add a service in the parent's project and set `rootDirectory` to the cwd subpath via `service set`.
-4. Neither linked? → check `lizard project list --json` for one matching the directory or repo name. Match → `lizard link --project <name>`. No match → `lizard init --name <name>`.
+4. Neither linked? → check `lizard project list --json` for one matching the directory or repo name. Match → `lizard link --project <name> [--workspace <ws>]` (pass `--workspace` to disambiguate same-named projects across workspaces). No match → `lizard init --name <name>`.
 
 Naming heuristic: app-style names (`my-api`, `worker`, `flappy-bird`) are service names. Use the repo or directory name for the project.
 
@@ -110,7 +110,7 @@ lizard service set <svc> \
 lizard redeploy --service <svc>
 ```
 
-When `repoUrl` is set, pushes to the matching branch auto-redeploy via the GitHub webhook. If the service has a `rootDirectory` (monorepo subpath) or watch patterns, only matching changes trigger redeploys.
+When `repoUrl` is set, pushes to the matching branch auto-redeploy via the GitHub webhook. If the service has a `context` (monorepo subpath; `rootDirectory` is an accepted alias) or watch patterns, only matching changes trigger redeploys.
 
 Useful `service set` fields (discover full list with `lizard service set --help --json`):
 
@@ -143,10 +143,10 @@ lizard up --json
 
 Two scopes exist. No workspace-level globals.
 
-- Project ("global"): `lizard secrets set KEY=v --global` → stored as `projectSecrets`
-- Service (default): `lizard secrets set KEY=v [--service <svc>]` → stored as `appSecrets`
+- Project ("global"): `lizard secrets set KEY=v [K2=v2 …] --global` → stored as `projectSecrets`
+- Service (default): `lizard secrets set KEY=v [K2=v2 …] [--service <svc>]` → stored as `appSecrets`
 
-When the linked service in cwd is set, plain `lizard secrets set KEY=v` writes to that service. Pass `--global` to escape to project scope.
+`set` is variadic. Companion subcommands: `lizard secrets list|delete K1 K2|import` (import reads dotenv from stdin). When the linked service in cwd is set, plain `lizard secrets set KEY=v` writes to that service. Pass `--global` to escape to project scope.
 
 ### Precedence (last writer wins)
 
@@ -162,7 +162,7 @@ Default to service-scope. `--global` puts the value into `process.env` of every 
 
 Rules:
 
-- Default — service-scope: `lizard secrets set KEY=v --service <svc>` per consumer. For addon DSNs, bind `${{postgres.DATABASE_URL}}` etc. on each consuming service via `lizard env set` — rotation still happens once on the addon, every reference updates.
+- Default — service-scope: `lizard secrets set KEY=v --service <svc>` per consumer. For addon DSNs, bind on each consumer with `lizard secrets set DATABASE_URL='${{postgres.DATABASE_URL}}' --service <svc>` (no separate `env` command — refs are interpolated at deploy time wherever they appear) — rotation still happens once on the addon, every reference updates.
 - `--global` only for non-secrets and provably-public values: `LOG_LEVEL`, `NODE_ENV`, feature flags, frontend `SENTRY_DSN`. If unsure whether a value is a secret, treat it as one. A compromised service reads its own env; broader scope = more credentials exposed for no reason.
 
 ## Healthcheck and restart
@@ -179,7 +179,7 @@ The node-agent calls that HTTP path during rollouts to gate readiness. Don't add
 
 ## Managed addons
 
-Provision with `lizard add <type>`. Each addon exposes a fixed env-var set; reference by name from a consumer service via `${{<addon-name>.KEY}}`. The first addon of a given type gets the bare type as its name (so `${{postgres.DATABASE_URL}}` works out of the box); subsequent ones get adjective-noun names like `autumn-bear`.
+Provision with `lizard add <type>`. Each addon exposes a fixed env-var set; reference by name from a consumer service via `${{<addon-name>.KEY}}`. The first addon of a given type gets the bare type as its name (so `${{postgres.DATABASE_URL}}` works out of the box); subsequent ones get `{type}-{adjective}-{noun}` like `postgres-autumn-bear`. There's no type-alias fallback — refs resolve by name, so renaming the addon breaks consumers.
 
 - `postgres` — `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`.
 - `redis` — `REDIS_URL`.
